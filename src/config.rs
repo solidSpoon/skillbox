@@ -15,9 +15,9 @@ pub struct Config {
     /// Optional non-standard install destination (overrides agent registry).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
-    /// Agent used when --agent is not given.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default_agent: Option<String>,
+    /// Agents operated on when --agent is omitted (empty = DEFAULT_AGENT).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<String>,
 }
 
 pub fn config_path() -> Result<PathBuf> {
@@ -106,16 +106,16 @@ pub fn resolve_source(flag: Option<&Path>, config: &Config) -> PathBuf {
     PathBuf::from("skills")
 }
 
-/// Resolve the selected agents: flags ("all" expands) > config > DEFAULT_AGENT.
+/// Resolve the selected agents:
+/// flags ("all" expands) > config.agents > [DEFAULT_AGENT].
 pub fn resolve_agents(flags: &[String], config: &Config) -> Result<Vec<String>> {
     let mut raw: Vec<String> = Vec::new();
     if flags.is_empty() {
-        raw.push(
-            config
-                .default_agent
-                .clone()
-                .unwrap_or_else(|| DEFAULT_AGENT.to_string()),
-        );
+        if config.agents.is_empty() {
+            raw.push(DEFAULT_AGENT.to_string());
+        } else {
+            raw = config.agents.clone();
+        }
     } else {
         for flag in flags {
             if flag == "all" {

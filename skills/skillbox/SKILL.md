@@ -59,10 +59,11 @@ skillbox list -a all        # one column per agent, */- marks
 skillbox uninstall foo -a all
 ```
 
-Without `-a`, the default agent is used (`codex` unless changed). Change the default persistently:
+Without `-a`, the configured agent set is used (default: `codex`). Persist it:
 
 ```bash
-skillbox config --default-agent pi
+skillbox config --agents pi,codex   # now bare install/init target BOTH
+skillbox agents                     # show the configured set (* marks)
 ```
 
 ## Typical workflows
@@ -79,6 +80,7 @@ skillbox config --default-agent pi
 |---------|-----------------|
 | `install` fails with "already installed" | Add `--force` to overwrite |
 | `uninstall` fails with "not installed" | The skill lives in another agent; retry with `-a all` |
+| Bare commands hit the wrong agents | Check the configured set: `skillbox agents`; change it: `skillbox config --agents <LIST>` |
 | Guessing an agent name | Run `skillbox agents` — known: `codex`, `pi` |
 | Guessing skill names | Run `skillbox list` — names are the sub-folder names in the repo |
 | `source folder not found` | Set it: `skillbox config --source <PATH>` (or clone `https://github.com/solidSpoon/skillbox.git ~/.skillbox/repo`) |

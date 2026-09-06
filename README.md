@@ -36,11 +36,13 @@ cargo install --git https://github.com/solidSpoon/skillbox.git
 | `skillbox list` | List repo skills (`*` = installed; `-a all` shows per-agent columns) |
 | `skillbox install <NAME>... [--force]` | Install skill(s) to target agent(s) |
 | `skillbox uninstall <NAME>...` | Remove skill(s) (idempotent, skips missing) |
-| `skillbox agents` | Show known agents, dirs, default |
-| `skillbox config [--source] [--target] [--default-agent]` | Show/update config |
+| `skillbox agents` | Show known agents, configured set, dirs |
+| `skillbox config [--source] [--target] [--agents LIST]` | Show/update config |
 | `skillbox path [NAME]` | Print resolved paths |
 
 Global flags: `-s/--source`, `-a/--agent` (repeatable, comma-separated, or `all`), `-t/--target`.
+
+Without `-a`, the configured agent set is used: config `agents` > `codex`. Set it with `skillbox config --agents pi,codex`.
 
 Source resolution order: `-s` flag > config > `~/.skillbox/repo/skills` > `./skills`.
 

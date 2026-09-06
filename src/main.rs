@@ -62,9 +62,9 @@ enum Command {
         /// Set the install destination folder (persisted)
         #[arg(long)]
         target: Option<PathBuf>,
-        /// Set the default agent used when --agent is omitted (persisted)
-        #[arg(long)]
-        default_agent: Option<String>,
+        /// Set the agents used when --agent is omitted, comma-separated (persisted)
+        #[arg(long, value_delimiter = ',')]
+        agents: Vec<String>,
     },
     /// Print resolved paths (source, per-agent targets, or a specific skill)
     Path { name: Option<String> },
@@ -91,8 +91,8 @@ fn run(cli: Cli) -> Result<()> {
         }
         Command::Uninstall { names } => cmd_uninstall(&cfg, &names, &cli.agent, cli.target.as_deref()),
         Command::Agents => cmd_agents(&cfg),
-        Command::Config { source, target, default_agent } => {
-            cmd_config(&mut cfg, source, target, default_agent)
+        Command::Config { source, target, agents } => {
+            cmd_config(&mut cfg, source, target, &agents)
         }
         Command::Path { name } => cmd_path(&cfg, name.as_deref(), &cli.agent, cli.source.as_deref(), cli.target.as_deref()),
     }
@@ -244,17 +244,15 @@ fn cmd_uninstall(
 }
 
 fn cmd_agents(cfg: &config::Config) -> Result<()> {
-    let default = cfg
-        .default_agent
-        .clone()
-        .unwrap_or_else(|| config::DEFAULT_AGENT.to_string());
-    println!("agents (default: {default}):");
+    let configured = config::resolve_agents(&[], cfg)?;
+    println!("agents (configured set: {}):", configured.join(", "));
     for (name, _) in config::AGENTS {
         let dir = config::agent_dir(name).expect("known agent");
         let detected = if dir.is_dir() { "detected" } else { "not detected" };
-        let mark = if *name == default { " (default)" } else { "" };
+        let mark = if configured.iter().any(|a| a == name) { " *" } else { "" };
         println!("  {name:<8} {}  [{detected}]{mark}", display_path(&dir));
     }
+    println!("\n* = operated on when --agent is omitted (change with: skillbox config --agents <LIST>)");
     Ok(())
 }
 
@@ -262,14 +260,14 @@ fn cmd_config(
     cfg: &mut config::Config,
     source: Option<PathBuf>,
     target: Option<PathBuf>,
-    default_agent: Option<String>,
+    agents: &[String],
 ) -> Result<()> {
-    if let Some(agent) = &default_agent {
+    for agent in agents {
         if !config::is_known_agent(agent) {
             bail!("unknown agent '{}'. known agents: {}", agent, config::known_agents());
         }
     }
-    if source.is_none() && target.is_none() && default_agent.is_none() {
+    if source.is_none() && target.is_none() && agents.is_empty() {
         println!("config file: {}", config::config_path()?.display());
         println!(
             "source: {}",
@@ -286,10 +284,12 @@ fn cmd_config(
                 .unwrap_or_else(|| "(unset, uses agent registry)".to_string())
         );
         println!(
-            "default agent: {}",
-            cfg.default_agent
-                .as_deref()
-                .unwrap_or(config::DEFAULT_AGENT)
+            "agents: {}",
+            if cfg.agents.is_empty() {
+                format!("(unset, default: {})", config::DEFAULT_AGENT)
+            } else {
+                cfg.agents.join(", ")
+            }
         );
         return Ok(());
     }
@@ -299,8 +299,8 @@ fn cmd_config(
     if let Some(target) = target {
         cfg.target = Some(display_path(&target));
     }
-    if let Some(agent) = default_agent {
-        cfg.default_agent = Some(agent);
+    if !agents.is_empty() {
+        cfg.agents = agents.to_vec();
     }
     config::save(cfg)?;
     println!("saved to {}", config::config_path()?.display());
