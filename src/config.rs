@@ -1,16 +1,23 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// Known agents and their skill folders (relative to $HOME).
+pub const AGENTS: &[(&str, &str)] = &[("codex", ".codex/skills"), ("pi", ".agents/skills")];
+pub const DEFAULT_AGENT: &str = "codex";
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Config {
     /// Skill repository folder.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
-    /// Install destination folder.
+    /// Optional non-standard install destination (overrides agent registry).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
+    /// Agent used when --agent is not given.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_agent: Option<String>,
 }
 
 pub fn config_path() -> Result<PathBuf> {
@@ -33,21 +40,27 @@ pub fn load() -> Result<Config> {
 pub fn save(config: &Config) -> Result<()> {
     let path = config_path()?;
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).with_context(|| format!("failed to create {}", parent.display()))?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
     }
     let raw = toml::to_string_pretty(config)?;
     fs::write(&path, raw).with_context(|| format!("failed to write {}", path.display()))
 }
 
-pub fn default_target() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".agents")
-        .join("skills")
+pub fn known_agents() -> String {
+    AGENTS.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", ")
 }
 
-pub fn default_source() -> PathBuf {
-    PathBuf::from("skills")
+pub fn agent_dir(name: &str) -> Option<PathBuf> {
+    AGENTS.iter().find(|(n, _)| *n == name).map(|(_, rel)| {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(rel)
+    })
+}
+
+pub fn is_known_agent(name: &str) -> bool {
+    AGENTS.iter().any(|(n, _)| *n == name)
 }
 
 /// Expand a leading `~` to the user's home directory.
@@ -64,6 +77,10 @@ pub fn expand_tilde(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
+pub fn default_source() -> PathBuf {
+    PathBuf::from("skills")
+}
+
 /// Resolve the effective source folder: flag > config > default.
 pub fn resolve_source(flag: Option<&Path>, config: &Config) -> PathBuf {
     if let Some(p) = flag {
@@ -75,13 +92,46 @@ pub fn resolve_source(flag: Option<&Path>, config: &Config) -> PathBuf {
     default_source()
 }
 
-/// Resolve the effective target folder: flag > config > ~/.agents/skills.
-pub fn resolve_target(flag: Option<&Path>, config: &Config) -> PathBuf {
+/// Resolve the selected agents: flags ("all" expands) > config > DEFAULT_AGENT.
+pub fn resolve_agents(flags: &[String], config: &Config) -> Result<Vec<String>> {
+    let mut raw: Vec<String> = Vec::new();
+    if flags.is_empty() {
+        raw.push(
+            config
+                .default_agent
+                .clone()
+                .unwrap_or_else(|| DEFAULT_AGENT.to_string()),
+        );
+    } else {
+        for flag in flags {
+            if flag == "all" {
+                for (name, _) in AGENTS {
+                    raw.push(name.to_string());
+                }
+            } else {
+                raw.push(flag.clone());
+            }
+        }
+    }
+    let mut out: Vec<String> = Vec::new();
+    for name in raw {
+        if !is_known_agent(&name) {
+            bail!("unknown agent '{}'. known agents: {}", name, known_agents());
+        }
+        if !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    Ok(out)
+}
+
+/// Install destination for one agent: flag > config.target > agent registry dir.
+pub fn target_for(agent: &str, config: &Config, flag: Option<&Path>) -> PathBuf {
     if let Some(p) = flag {
         return p.to_path_buf();
     }
     if let Some(s) = &config.target {
         return expand_tilde(s);
     }
-    default_target()
+    agent_dir(agent).unwrap_or_else(|| PathBuf::from("."))
 }

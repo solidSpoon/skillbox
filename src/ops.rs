@@ -76,10 +76,12 @@ pub fn install(source: &Path, target: &Path, name: &str, force: bool) -> Result<
 }
 
 /// Remove an installed skill from the target folder.
-pub fn uninstall(target: &Path, name: &str) -> Result<()> {
+/// Returns Ok(false) when the skill was not installed (idempotent).
+pub fn uninstall(target: &Path, name: &str) -> Result<bool> {
     let dst = target.join(name);
     if !dst.exists() {
-        bail!("skill '{}' is not installed in {}", name, target.display());
+        return Ok(false);
     }
-    fs::remove_dir_all(&dst).with_context(|| format!("failed to remove {}", dst.display()))
+    fs::remove_dir_all(&dst).with_context(|| format!("failed to remove {}", dst.display()))?;
+    Ok(true)
 }

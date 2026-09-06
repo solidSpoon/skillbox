@@ -1,61 +1,83 @@
 ---
 name: skillbox
-description: >
-  Manage the user's agent skills with the `skillbox` CLI: list skills in the
-  skill repository, install/uninstall skills to/from the local agent skill
-  folder, and inspect or change skillbox configuration. Use when the user
-  wants to install a skill, remove a skill, see available skills, or ask
-  about skillbox itself.
+description: Manage the user's agent skills with the `skillbox` CLI — list skills in the repository, install/uninstall skills to/from local agents (Codex, Pi), inspect configuration. Use when the user asks to install a skill, remove a skill, see available skills, sync skills, or mentions skillbox.
 ---
 
 # skillbox
 
-`skillbox` is a small CLI that manages agent skills.
+`skillbox` manages agent skills. Two concepts:
 
-- **Source** (skill repository): a folder of skills, one sub-folder per skill,
-  each containing a `SKILL.md`. Default: `./skills`, configurable.
-- **Target** (install destination): the local agent skill folder, e.g.
-  `~/.agents/skills/`. Each installed skill is a sub-folder there.
+- **Source** — the skill repository: a folder of skills, one sub-folder per skill, each with a `SKILL.md`. Default `./skills`, persisted via config.
+- **Agents** — install destinations. Registry: `codex` → `~/.codex/skills` (default), `pi` → `~/.agents/skills`.
+
+## Help first (IMPORTANT)
+
+**When unsure about a command, flag, or agent name, run help instead of guessing.** One help query beats guess-fail-retry loops.
+
+```bash
+skillbox --help            # all commands + global flags
+skillbox install --help
+skillbox agents            # registry, per-agent dirs, current default
+```
+
+## Quick Start
+
+```bash
+skillbox list              # what's available; "*" = already installed
+skillbox install foo       # install skill "foo" to the default agent
+skillbox uninstall foo     # remove it
+```
 
 ## Commands
 
 ```bash
-# One-time setup: write the skillbox skill into the agent skill folder,
-# optionally registering the skill repository location.
-skillbox init [--source <PATH>]
-
-# List skills available in the source repository ("*" = already installed).
-skillbox list
-
-# Install one or more skills from the repository to the target folder.
-skillbox install <NAME>... [--force]
-
-# Remove installed skills from the target folder.
-skillbox uninstall <NAME>...
-
-# Show or update configuration (stored in ~/.config/skillbox/config.toml).
-skillbox config [--source <PATH>] [--target <PATH>]
-
-# Print resolved paths: target folder, source folder, or one skill's path.
-skillbox path [NAME]
+skillbox init [--source <PATH>]       # self-install the skillbox skill into agent(s)
+skillbox list                         # list repo skills; "*" = installed
+skillbox install <NAME>... [--force]  # install to target agent(s)
+skillbox uninstall <NAME>...          # remove from target agent(s)
+skillbox agents                       # show agents, dirs, default
+skillbox config [--source P] [--target P] [--default-agent A]
+skillbox path [NAME]                  # print source/target/skill paths
 ```
 
-Global overrides (work on every subcommand):
+## Agents
 
-- `-s, --source <PATH>` — use a different skill repository just for this call
-- `-t, --target <PATH>` — install into a different folder just for this call
+`-a/--agent` is a **global flag** (works on every subcommand): repeatable, comma-separated, or `all`.
 
-## Typical agent workflows
+```bash
+skillbox init -a all        # install skillbox skill into every known agent
+skillbox install foo -a pi  # only Pi
+skillbox list -a all        # one column per agent, */- marks
+skillbox uninstall foo -a all
+```
 
-- "看看有哪些 skill 可以装" → `skillbox list`, then present the result.
-- "把 X 装到电脑上" → `skillbox install X`, then tell the user to restart
-  their agent session so the new skill is picked up.
-- "这个 skill 不用了" → `skillbox uninstall X`.
-- "我的 skills 仓库在 /path/to/repo" → `skillbox config --source /path/to/repo`
-  (persists it) or use `-s` for a one-off.
+Without `-a`, the default agent is used (`codex` unless changed). Change the default persistently:
+
+```bash
+skillbox config --default-agent pi
+```
+
+## Typical workflows
+
+- "看看有哪些 skill 可以装" → `skillbox list`, present the result.
+- "把 X 装到电脑上" → `skillbox install X`; if the user mainly uses another agent, add `-a <agent>` or confirm first.
+- "这个 skill 不用了" → `skillbox uninstall X` (add `-a all` if it may be installed in several agents).
+- "我的 skills 仓库在 /path/to/repo" → `skillbox config --source /path/to/repo` (persists) or `-s` for one-off.
+- After any install/uninstall, tell the user to restart the agent session so the change takes effect.
+
+## Common Pitfalls
+
+| Pitfall | Correct Approach |
+|---------|-----------------|
+| `install` fails with "already installed" | Add `--force` to overwrite |
+| `uninstall` fails with "not installed" | The skill lives in another agent; retry with `-a all` |
+| Guessing an agent name | Run `skillbox agents` — known: `codex`, `pi` |
+| Guessing skill names | Run `skillbox list` — names are the sub-folder names in the repo |
+| Expecting changes to apply live | Agent reads the skill list at session start — restart required |
+| Setting `--target` casually | It overrides the agent registry for ALL agents; prefer `-a` and the registry |
 
 ## Notes
 
-- `install` refuses to overwrite an existing skill unless `--force` is given.
-- After installing or uninstalling, the agent usually needs a session restart
-  (or a reload) to pick up the skill list change.
+- `init` embeds the skillbox skill in the binary, so it works from any directory.
+- `-t/--target` forces one specific destination folder (rarely needed; useful for testing).
+- Config lives in `~/.config/skillbox/config.toml` — inspect with `skillbox config`.
