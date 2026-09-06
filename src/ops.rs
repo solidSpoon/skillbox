@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// A skill found in a source folder: a directory containing a SKILL.md.
 #[derive(Debug)]
@@ -57,25 +58,60 @@ pub fn copy_dir(src: &Path, dst: &Path) -> Result<usize> {
 }
 
 /// Install a skill (by directory name) from source to target.
-pub fn install(source: &Path, target: &Path, name: &str, force: bool) -> Result<usize> {
+/// Always overwrites an existing installation.
+pub fn install(source: &Path, target: &Path, name: &str) -> Result<usize> {
     let src = source.join(name);
     if !src.join("SKILL.md").is_file() {
         bail!("skill '{}' not found in {}", name, source.display());
     }
     let dst = target.join(name);
     if dst.exists() {
-        if !force {
-            bail!(
-                "skill '{}' already installed at {}; use --force to overwrite",
-                name,
-                dst.display()
-            );
-        }
         fs::remove_dir_all(&dst)
             .with_context(|| format!("failed to remove old {}", dst.display()))?;
     }
     fs::create_dir_all(target).with_context(|| format!("failed to create {}", target.display()))?;
     copy_dir(&src, &dst)
+}
+
+/// If the source lives inside the canonical git clone (~/.skillbox/repo),
+/// refresh it from the remote (fetch + hard reset). Local changes are
+/// intentionally discarded — the clone is treated as a read-only cache.
+/// Returns Ok(Some(summary)) when HEAD moved, Ok(None) otherwise.
+pub fn update_source(source: &Path) -> Result<Option<String>> {
+    let repo = match crate::config::canonical_repo_skills().parent() {
+        Some(p) => p.to_path_buf(),
+        None => return Ok(None),
+    };
+    if !source.starts_with(&repo) || !repo.join(".git").exists() {
+        return Ok(None);
+    }
+    let head_before = git(&repo, &["rev-parse", "HEAD"]).ok();
+    git(&repo, &["fetch", "origin", "--prune"])?;
+    git(&repo, &["reset", "--hard", "origin/HEAD"])?;
+    let head_after = git(&repo, &["rev-parse", "HEAD"]).ok();
+    match (head_before, head_after) {
+        (Some(a), Some(b)) if a != b => {
+            Ok(Some(format!("repo updated: {} -> {}", &a[..7], &b[..7])))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn git(repo: &Path, args: &[&str]) -> Result<String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(args)
+        .output()
+        .context("failed to run git")?;
+    if !out.status.success() {
+        bail!(
+            "git {} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
 /// Remove an installed skill from the target folder.

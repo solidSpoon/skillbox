@@ -39,13 +39,15 @@ skillbox uninstall foo     # remove it
 ## Commands
 
 ```bash
-skillbox init [--source <PATH>]       # self-install the skillbox skill into agent(s)
-skillbox list                         # list repo skills; "*" = installed
-skillbox install <NAME>... [--force]  # install to target agent(s)
-skillbox uninstall <NAME>...          # remove from target agent(s)
-skillbox agents                       # show agents, dirs, default
-skillbox config [--source P] [--target P] [--default-agent A]
-skillbox path [NAME]                  # print source/target/skill paths
+skillbox init [--source <PATH>]            # self-install the skillbox skill into agent(s)
+skillbox list                              # list repo skills; "*" = installed
+skillbox install <NAME>...                 # install/overwrite to target agent(s);
+                                           # auto-refreshes ~/.skillbox/repo from git first
+                                           # (offline: warns and uses the local copy)
+skillbox uninstall <NAME>...               # remove from target agent(s)
+skillbox agents                            # show agents, dirs, configured set
+skillbox config [--source P] [--target P] [--agents LIST]
+skillbox path [NAME]                       # print source/target/skill paths
 ```
 
 ## Agents
@@ -78,7 +80,8 @@ skillbox agents                     # show the configured set (* marks)
 
 | Pitfall | Correct Approach |
 |---------|-----------------|
-| `install` fails with "already installed" | Add `--force` to overwrite |
+| Expecting `install` to ask before overwriting | It never asks — install always overwrites existing skills |
+| Editing files in `~/.skillbox/repo` | Don't — it's a read-only cache; `install` hard-resets it to the remote |
 | `uninstall` fails with "not installed" | The skill lives in another agent; retry with `-a all` |
 | Bare commands hit the wrong agents | Check the configured set: `skillbox agents`; change it: `skillbox config --agents <LIST>` |
 | Guessing an agent name | Run `skillbox agents` — known: `codex`, `pi` |

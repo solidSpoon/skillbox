@@ -42,13 +42,10 @@ enum Command {
     },
     /// List skills available in the repository ("*" = installed)
     List,
-    /// Install skills from the repository to the target agent(s)
+    /// Install skills from the repository to the target agent(s) (overwrites existing)
     Install {
         /// Skill names (sub-folder names in the repository)
         names: Vec<String>,
-        /// Overwrite already-installed skills
-        #[arg(short, long)]
-        force: bool,
     },
     /// Remove installed skills from the target agent(s)
     Uninstall { names: Vec<String> },
@@ -86,8 +83,8 @@ fn run(cli: Cli) -> Result<()> {
             cmd_init(&mut cfg, source, &cli.agent, cli.source.as_deref(), cli.target.as_deref())
         }
         Command::List => cmd_list(&cfg, &cli.agent, cli.source.as_deref(), cli.target.as_deref()),
-        Command::Install { names, force } => {
-            cmd_install(&cfg, &names, force, &cli.agent, cli.source.as_deref(), cli.target.as_deref())
+        Command::Install { names } => {
+            cmd_install(&cfg, &names, &cli.agent, cli.source.as_deref(), cli.target.as_deref())
         }
         Command::Uninstall { names } => cmd_uninstall(&cfg, &names, &cli.agent, cli.target.as_deref()),
         Command::Agents => cmd_agents(&cfg),
@@ -180,7 +177,6 @@ fn cmd_list(
 fn cmd_install(
     cfg: &config::Config,
     names: &[String],
-    force: bool,
     agents_flag: &[String],
     source_flag: Option<&Path>,
     target_flag: Option<&Path>,
@@ -189,12 +185,17 @@ fn cmd_install(
         bail!("no skill names given. usage: skillbox install <NAME>...");
     }
     let source = config::resolve_source(source_flag, cfg);
+    match ops::update_source(&source) {
+        Ok(Some(msg)) => println!("{msg}"),
+        Ok(None) => {}
+        Err(err) => eprintln!("warning: repo not refreshed, using local copy ({err:#})"),
+    }
     let agents = config::resolve_agents(agents_flag, cfg)?;
     let mut failed = false;
     for agent in &agents {
         let target = config::target_for(agent, cfg, target_flag);
         for name in names {
-            match ops::install(&source, &target, name, force) {
+            match ops::install(&source, &target, name) {
                 Ok(files) => println!(
                     "installed {name} -> {} ({agent}, {files} files)",
                     target.join(name).display()

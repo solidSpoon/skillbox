@@ -45,7 +45,7 @@ cargo install --git https://github.com/solidSpoon/skillbox.git
 |---------|-------------|
 | `skillbox init [-a all] [--source PATH]` | Self-install the bundled skillbox skill |
 | `skillbox list` | List repo skills (`*` = installed; `-a all` shows per-agent columns) |
-| `skillbox install <NAME>... [--force]` | Install skill(s) to target agent(s) |
+| `skillbox install <NAME>...` | Install skill(s) to target agent(s); always overwrites; auto-refreshes the canonical clone from git first |
 | `skillbox uninstall <NAME>...` | Remove skill(s) (idempotent, skips missing) |
 | `skillbox agents` | Show known agents, configured set, dirs |
 | `skillbox config [--source] [--target] [--agents LIST]` | Show/update config |
