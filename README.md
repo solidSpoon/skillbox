@@ -11,8 +11,19 @@ A tiny Rust CLI to manage your agent skills across machines and agents (Codex, P
 
 ```bash
 # macOS / Linux — no Rust needed. Installs the binary, clones this repo to
-# ~/.skillbox/repo, registers the source, and runs `skillbox init -a all`.
+# ~/.skillbox/repo, and registers the source.
 curl -fsSL https://raw.githubusercontent.com/solidSpoon/skillbox/master/install.sh | bash
+
+# Optional: also inject the skillbox skill into your agents in one go
+SKILLBOX_AGENTS="pi,codex" curl -fsSL https://raw.githubusercontent.com/solidSpoon/skillbox/master/install.sh | bash
+```
+
+If no agents are configured yet (and SKILLBOX_AGENTS is not given), the installer
+prints the two next steps instead of writing anything:
+
+```bash
+skillbox config --agents <LIST>   # e.g. pi,codex
+skillbox init
 ```
 
 Then verify and pick skills:

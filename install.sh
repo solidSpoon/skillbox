@@ -52,8 +52,19 @@ if [ -d "$repo_dir/skills" ]; then
   "$dest/skillbox" config --source "$repo_dir/skills"
 fi
 
-# Self-install the skillbox skill into every known agent.
-"$dest/skillbox" init -a all || true
+# Inject the skillbox skill — only into agents the user actually asked for.
+# Optional: SKILLBOX_AGENTS="pi,codex" curl -fsSL ... | bash
+agents_line="$("$dest/skillbox" config 2>/dev/null | grep '^agents:' || true)"
+if [ -n "${SKILLBOX_AGENTS:-}" ]; then
+  "$dest/skillbox" config --agents "$SKILLBOX_AGENTS"
+  "$dest/skillbox" init
+elif echo "$agents_line" | grep -qv 'unset'; then
+  "$dest/skillbox" init
+else
+  echo "==> skillbox skill not injected yet — pick your agents first:"
+  echo "     skillbox config --agents <LIST>   # e.g. pi,codex"
+  echo "     skillbox init"
+fi
 
 echo
 echo "==> all set. try:"
