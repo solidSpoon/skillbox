@@ -81,7 +81,17 @@ pub fn default_source() -> PathBuf {
     PathBuf::from("skills")
 }
 
-/// Resolve the effective source folder: flag > config > default.
+/// Canonical clone location used by install.sh.
+pub fn canonical_repo_skills() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".skillbox")
+        .join("repo")
+        .join("skills")
+}
+
+/// Resolve the effective source folder:
+/// flag > config > ~/.skillbox/repo/skills > ./skills > ./skills (for the error).
 pub fn resolve_source(flag: Option<&Path>, config: &Config) -> PathBuf {
     if let Some(p) = flag {
         return p.to_path_buf();
@@ -89,7 +99,11 @@ pub fn resolve_source(flag: Option<&Path>, config: &Config) -> PathBuf {
     if let Some(s) = &config.source {
         return expand_tilde(s);
     }
-    default_source()
+    let canonical = canonical_repo_skills();
+    if canonical.is_dir() {
+        return canonical;
+    }
+    PathBuf::from("skills")
 }
 
 /// Resolve the selected agents: flags ("all" expands) > config > DEFAULT_AGENT.

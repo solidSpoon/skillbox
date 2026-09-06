@@ -12,7 +12,10 @@ pub struct Skill {
 /// Scan a folder (one level deep) for skill directories.
 pub fn discover(source: &Path) -> Result<Vec<Skill>> {
     if !source.exists() {
-        bail!("source folder not found: {}", source.display());
+        bail!(
+            "source folder not found: {}\nfix it with:\n  skillbox config --source <PATH-TO-SKILLS>\n  # or clone the public repo:\n  git clone --depth 1 https://github.com/solidSpoon/skillbox.git ~/.skillbox/repo",
+            source.display()
+        );
     }
     let mut skills = Vec::new();
     for entry in fs::read_dir(source).with_context(|| format!("cannot read {}", source.display()))? {

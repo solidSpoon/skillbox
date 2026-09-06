@@ -7,7 +7,7 @@ description: Manage the user's agent skills with the `skillbox` CLI — list ski
 
 `skillbox` manages agent skills. Two concepts:
 
-- **Source** — the skill repository: a folder of skills, one sub-folder per skill, each with a `SKILL.md`. Default `./skills`, persisted via config.
+- **Source** — the skill repository: a folder of skills, one sub-folder per skill, each with a `SKILL.md`. Resolution order: `-s` flag > config > `~/.skillbox/repo/skills` (the canonical clone made by install.sh) > `./skills`.
 - **Agents** — install destinations. Registry: `codex` → `~/.codex/skills` (default), `pi` → `~/.agents/skills`.
 
 ## Help first (IMPORTANT)
@@ -21,6 +21,14 @@ skillbox agents            # registry, per-agent dirs, current default
 ```
 
 ## Quick Start
+
+Fresh machine (installs binary, clones the repo, registers source, self-installs):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/solidSpoon/skillbox/master/install.sh | bash
+```
+
+Everyday use:
 
 ```bash
 skillbox list              # what's available; "*" = already installed
@@ -73,6 +81,7 @@ skillbox config --default-agent pi
 | `uninstall` fails with "not installed" | The skill lives in another agent; retry with `-a all` |
 | Guessing an agent name | Run `skillbox agents` — known: `codex`, `pi` |
 | Guessing skill names | Run `skillbox list` — names are the sub-folder names in the repo |
+| `source folder not found` | Set it: `skillbox config --source <PATH>` (or clone `https://github.com/solidSpoon/skillbox.git ~/.skillbox/repo`) |
 | Expecting changes to apply live | Agent reads the skill list at session start — restart required |
 | Setting `--target` casually | It overrides the agent registry for ALL agents; prefer `-a` and the registry |
 
